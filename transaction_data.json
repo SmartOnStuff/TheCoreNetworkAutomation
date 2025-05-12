@@ -1,7 +1,7 @@
 {
     "districts": [
       {
-        "districtId": 4343,
+        "districtId": 4344,
         "buildingId": 252,
         "buildingType": "FUEL_SYNTHESIZER",
         "researchType": "FUEL_SYNTHESIZER_SYNTHESIS",
