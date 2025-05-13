@@ -1,0 +1,53 @@
+{
+    "districts": [
+        {
+            "districtId": 14931,
+            "buildingId": 305,
+            "buildingType": "CRYSTAL_LAB",
+            "researchType": "CRYSTAL_LAB_SYNTHESIS",
+            "tokens": {
+                "Si": {
+                    "amount": 500000,
+                    "receiver": "0x0000000000000000000000000000000000000000",
+                    "contract": "0xd2fdbb49dba431fb728a046c5900618deed064ff"
+                },
+                "REE": {
+                    "amount": 150000,
+                    "receiver": "0x0000000000000000000000000000000000000000",
+                    "contract": "0x813a5b8ee3932b5ce1c4b2b6444d599a128a6c71"
+                }
+            },
+            "internalTransfers": {
+                "POL": {
+                    "amount": 0.01,
+                    "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
+                    "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
+                }
+            }
+        },
+        {
+            "districtId": 205,
+            "buildingType": "NANO_FORGE",
+            "researchType": "NANO_FORGE_CONSTRUCT",
+            "tokens": {
+                "Ti": {
+                    "amount": 1500000,
+                    "receiver": "0x0000000000000000000000000000000000000000",
+                    "contract": "0xf53ce43b19f04e84890e3c347dc4a366f3d75619"
+                },
+                "Si": {
+                    "amount": 2000000,
+                    "receiver": "0x0000000000000000000000000000000000000000",
+                    "contract": "0xd2fdbb49dba431fb728a046c5900618deed064ff"
+                }
+            },
+            "internalTransfers": {
+                "POL": {
+                    "amount": 0.05,
+                    "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
+                    "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
+                }
+            }
+        }
+    ]
+}
