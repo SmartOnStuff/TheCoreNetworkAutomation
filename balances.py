@@ -1,0 +1,142 @@
+import requests
+import time
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
+WALLET_ADDRESS = os.getenv("WALLET_ADDRESS")
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+
+
+# Function to send notifications to Telegram chat(s) using the Telegram Bot API.
+# Requires a valid TELEGRAM_TOKEN and a list of chat IDs to send the message to.
+def send_telegram_notification(text, chat_id):
+    """Send notification to Telegram."""
+    if not TELEGRAM_TOKEN:
+        print("Telegram token not found. Skipping notification.")
+        return
+        
+
+    url_req = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={chat_id}&text={text}"
+    try:
+        results = requests.get(url_req)
+        print(f"Telegram notification sent: {results.json()}")
+    except Exception as e:
+        print(f"Error sending Telegram notification: {e}")
+
+
+def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
+    """
+    Get token balances for a wallet address on Polygon network.
+    
+    Args:
+        wallet_address (str): The wallet address to check
+        api_key (str): Your Etherscan/Polygonscan API key
+        
+    Returns:
+        str: Formatted string with token balances on separate lines
+    """
+    # Validate inputs
+    if not wallet_address or not api_key:
+        return "Error: Wallet address and API key are required"
+    
+    if not wallet_address.startswith("0x") or len(wallet_address) != 42:
+        return "Error: Invalid wallet address format"
+    
+    # Token addresses to check (including MATIC/POL)
+    tokens = {
+        "POL": "native",  # MATIC/POL native token
+        "Si": "0xD2fDBb49DBA431fb728a046c5900618deED064fF",
+        "REE": "0x813a5B8eE3932B5ce1c4B2b6444d599A128a6C71",
+        "C": "0xf986430B685e9aB18E0108C604d31b71971DB5F7",
+        "Ti": "0xF53CE43b19f04E84890E3c347Dc4A366f3D75619",
+        "H": "0x6989f166E49b378D38c4A5d2b00D76344dEa8Cec",
+        "He3": "0xc316115D4ce93Af8E081d8555820fF74eFD5b5AE",
+        "COS": "0x2c6e0C3EC2107144CcbadD6b003eC13b72EB44E7",
+        "REE": "0x813a5B8eE3932B5ce1c4B2b6444d599A128a6C71",
+        "CN": "0x7BeD50d99CfdBea233A2F2E3DCCd4F9A0acAfe6c"
+    }
+    
+    # Token decimals - assuming all are 18 but can be adjusted if needed
+    token_decimals = {
+        "POL": 0,
+        "Si": 0,
+        "REE": 0,
+        "C": 0,
+        "Ti": 0,
+        "H": 0,
+        "He3": 0,
+        "COS": 0,
+        "REE": 0,
+        "CN": 0
+    }
+    
+    results = []
+    base_url = "https://api.polygonscan.com/api"
+    
+    try:
+        # First get POL (MATIC) balance - native token
+        polygon_params = {
+            "module": "account",
+            "action": "balance",
+            "address": wallet_address,
+            "apikey": api_key
+        }
+        
+        response = requests.get(base_url, params=polygon_params)
+        data = response.json()
+        
+        if data["status"] == "1":
+            # Convert from wei to MATIC/POL (18 decimals)
+            balance = float(data["result"]) / (10 ** token_decimals["POL"])
+            results.append(f"POL: {balance:.6f}")
+        else:
+            results.append(f"POL: Error fetching balance - {data.get('message', 'Unknown error')}")
+        
+        # Get balances for other tokens
+        for symbol, token_address in tokens.items():
+            # Skip POL as we already got it
+            if symbol == "POL":
+                continue
+            
+            # Use the tokenbalance endpoint for all other tokens
+            token_params = {
+                "module": "account",
+                "action": "tokenbalance",
+                "contractaddress": token_address,
+                "address": wallet_address,
+                "tag": "latest",
+                "apikey": api_key
+            }
+            
+            try:
+                token_response = requests.get(base_url, params=token_params)
+                token_data = token_response.json()
+                
+                if token_data["status"] == "1":
+                    # Convert token balance based on its decimals
+                    token_balance = float(token_data["result"]) / (10 ** token_decimals[symbol])
+                    results.append(f"{symbol}: {token_balance:.6f}")
+                else:
+                    results.append(f"{symbol}: Error fetching balance - {token_data.get('message', 'Unknown error')}")
+                
+                # Add a small delay to prevent API rate limiting
+                time.sleep(0.5)
+            except Exception as e:
+                results.append(f"{symbol}: Error - {str(e)}")
+        
+        return "\n".join(results)
+    
+    except Exception as e:
+        return f"Error fetching balances: {str(e)}"
+
+
+    # Example usage
+wallet_address = WALLET_ADDRESS
+api_key = ETHERSCAN_API_KEY
+result = get_polygon_token_balances(wallet_address, api_key)
+print(result)
+
+send_telegram_notification(result, TELEGRAM_CHAT_ID)
