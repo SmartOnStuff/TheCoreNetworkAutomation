@@ -110,6 +110,7 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
     
     results = []
     token_values = {}  # Store token values for aligned formatting later
+    
     # Using proper base URL for v2 API from Etherscan
     base_url = "https://api.etherscan.io/v2/api"
     # Polygon chainid is 137
@@ -177,14 +178,12 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
                 token_values[symbol] = f"Error - {str(e)}"
         
         # Format the results with aligned columns
-        # Find the length of the longest token symbol for padding
-        max_symbol_length = max(len(symbol) for symbol in tokens.keys())
-        
-        # Create formatted output with aligned columns
+        # Create formatted output with values first, then token symbols
         for symbol in tokens.keys():
             if symbol in token_values:
-                # Pad the token symbol to align values
-                results.append(f"{token_values[symbol]}{' ' * (max_symbol_length - len(symbol) + 5)}{symbol}")
+                value = token_values[symbol]
+                # Add consistent padding after the value
+                results.append(f"{value}{' ' * 10}{symbol}")
         
         return "\n".join(results)
     
