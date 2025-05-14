@@ -9,16 +9,13 @@ WALLET_ADDRESS = os.getenv("WALLET_ADDRESS")
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-
-# Function to send notifications to Telegram chat(s) using the Telegram Bot API.
-# Requires a valid TELEGRAM_TOKEN and a list of chat IDs to send the message to.
+# Function to send notifications to Telegram chat(s) using the Telegram Bot API
 def send_telegram_notification(text, chat_id):
     """Send notification to Telegram."""
     if not TELEGRAM_TOKEN:
         print("Telegram token not found. Skipping notification.")
         return
         
-
     url_req = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={chat_id}&text={text}"
     try:
         results = requests.get(url_req)
@@ -29,7 +26,7 @@ def send_telegram_notification(text, chat_id):
 
 def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
     """
-    Get token balances for a wallet address on Polygon network.
+    Get token balances for a wallet address on Polygon network using v2 API with chainid parameter.
     
     Args:
         wallet_address (str): The wallet address to check
@@ -55,13 +52,12 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         "H": "0x6989f166E49b378D38c4A5d2b00D76344dEa8Cec",
         "He3": "0xc316115D4ce93Af8E081d8555820fF74eFD5b5AE",
         "COS": "0x2c6e0C3EC2107144CcbadD6b003eC13b72EB44E7",
-        "REE": "0x813a5B8eE3932B5ce1c4B2b6444d599A128a6C71",
         "CN": "0x7BeD50d99CfdBea233A2F2E3DCCd4F9A0acAfe6c"
     }
     
     # Token decimals - assuming all are 18 but can be adjusted if needed
     token_decimals = {
-        "POL": 0,
+        "POL": 18,
         "Si": 0,
         "REE": 0,
         "C": 0,
@@ -69,16 +65,19 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         "H": 0,
         "He3": 0,
         "COS": 0,
-        "REE": 0,
         "CN": 0
     }
     
     results = []
-    base_url = "https://api.polygonscan.com/api"
+    # Using proper base URL for v2 API from Etherscan
+    base_url = "https://api.etherscan.io/v2/api"
+    # Polygon chainid is 137
+    chain_id = 137
     
     try:
         # First get POL (MATIC) balance - native token
         polygon_params = {
+            "chainid": chain_id,
             "module": "account",
             "action": "balance",
             "address": wallet_address,
@@ -101,8 +100,9 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
             if symbol == "POL":
                 continue
             
-            # Use the tokenbalance endpoint for all other tokens
+            # Use the tokenbalance endpoint with v2 API format
             token_params = {
+                "chainid": chain_id,
                 "module": "account",
                 "action": "tokenbalance",
                 "contractaddress": token_address,
@@ -116,8 +116,11 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
                 token_data = token_response.json()
                 
                 if token_data["status"] == "1":
-                    # Convert token balance based on its decimals
-                    token_balance = float(token_data["result"]) / (10 ** token_decimals[symbol])
+                    # For tokens with 0 decimals, we don't need to divide
+                    decimals = token_decimals.get(symbol, 0)
+                    token_balance = float(token_data["result"])
+                    if decimals > 0:
+                        token_balance = token_balance / (10 ** decimals)
                     results.append(f"{symbol}: {token_balance:.6f}")
                 else:
                     results.append(f"{symbol}: Error fetching balance - {token_data.get('message', 'Unknown error')}")
@@ -133,10 +136,19 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         return f"Error fetching balances: {str(e)}"
 
 
+if __name__ == "__main__":
     # Example usage
-wallet_address = WALLET_ADDRESS
-api_key = ETHERSCAN_API_KEY
-result = get_polygon_token_balances(wallet_address, api_key)
-print(result)
-
-send_telegram_notification(result, TELEGRAM_CHAT_ID)
+    wallet_address = WALLET_ADDRESS
+    api_key = ETHERSCAN_API_KEY
+    
+    if not wallet_address or not api_key:
+        print("Please set WALLET_ADDRESS and ETHERSCAN_API_KEY in your .env file")
+    else:
+        result = get_polygon_token_balances(wallet_address, api_key)
+        print(result)
+        
+        # Send the results to Telegram if configured
+        if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
+            send_telegram_notification(result, TELEGRAM_CHAT_ID)
+        else:
+            print("Telegram notification skipped: missing token or chat ID")
