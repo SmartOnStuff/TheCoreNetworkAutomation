@@ -52,7 +52,8 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         "H": "0x6989f166E49b378D38c4A5d2b00D76344dEa8Cec",
         "He3": "0xc316115D4ce93Af8E081d8555820fF74eFD5b5AE",
         "COS": "0x2c6e0C3EC2107144CcbadD6b003eC13b72EB44E7",
-        "CN": "0x7BeD50d99CfdBea233A2F2E3DCCd4F9A0acAfe6c"
+        "CN": "0x7BeD50d99CfdBea233A2F2E3DCCd4F9A0acAfe6c",
+        "CRS": "0x4F80a7627bfb9fdc54d7184e0DDeB2c76596cC3C"
     }
     
     # Token decimals - assuming all are 18 but can be adjusted if needed
@@ -65,7 +66,8 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         "H": 0,
         "He3": 0,
         "COS": 0,
-        "CN": 0
+        "CN": 0,
+        "CRS": 0
     }
     
     results = []
