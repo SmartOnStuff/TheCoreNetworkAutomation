@@ -6,6 +6,7 @@ import time
 from web3 import Web3
 from dotenv import load_dotenv
 from hexbytes import HexBytes
+import requests
 
 # Configure detailed logging to file
 file_handler = logging.FileHandler("transaction_debug.log")
@@ -26,6 +27,12 @@ logging.basicConfig(
 # Load environment variables from .env file
 load_dotenv()
 private_key = os.getenv("PRIVATE_KEY")
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+    logging.info("Telegram token or chat ID not found! Please check your .env file.")
+    logging.debug("Telegram token or chat ID not found! Please check your .env file.")
+
 if not private_key:
     logging.error("Private key not found! Please check your .env file.")
     raise ValueError("Private key not found! Please check your .env file.")
@@ -43,6 +50,23 @@ try:
 except Exception as e:
     logging.error(f"Failed to load JSON file: {e}")
     raise
+
+# Function to send notifications to Telegram chat(s) using the Telegram Bot API.
+# Requires a valid TELEGRAM_TOKEN and a list of chat IDs to send the message to.
+def send_telegram_notification(text, id_list):
+    """Send notification to Telegram."""
+    if not TELEGRAM_TOKEN:
+        print("Telegram token not found. Skipping notification.")
+        return
+        
+    for chat_id in id_list:
+        url_req = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={chat_id}&text={text}"
+        try:
+            results = requests.get(url_req)
+            print(f"Telegram notification sent: {results.json()}")
+        except Exception as e:
+            print(f"Error sending Telegram notification: {e}")
+
 
 # Connect to Polygon RPC endpoint
 rpc_url = "https://polygon-rpc.com"
@@ -258,6 +282,13 @@ logging.info(f"Processed: {success_count + failure_count}/{total_districts} dist
 logging.info(f"Successful: {success_count}/{total_districts}")
 logging.info(f"Failed: {failure_count}/{total_districts}")
 
+# Send summary notification to Telegram
+notification = f"Processed: {success_count + failure_count}/{total_districts} districts\n" \
+                f"Successful: {success_count}/{total_districts}\n" \
+                f"Failed: {failure_count}/{total_districts}"
+send_telegram_notification(notification, TELEGRAM_CHAT_ID)
+
+# Final log statement depending on success or failures
 if success_count == total_districts:
     logging.info("All transactions executed successfully!")
 elif success_count > 0:
