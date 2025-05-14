@@ -71,7 +71,7 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         api_key (str): Your Etherscan/Polygonscan API key
         
     Returns:
-        str: Formatted string with token balances on separate lines
+        str: Formatted string with token balances on separate lines with aligned columns
     """
     # Validate inputs
     if not wallet_address or not api_key:
@@ -109,6 +109,7 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
     }
     
     results = []
+    token_values = {}  # Store token values for aligned formatting later
     # Using proper base URL for v2 API from Etherscan
     base_url = "https://api.etherscan.io/v2/api"
     # Polygon chainid is 137
@@ -132,9 +133,9 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
             balance = float(data["result"]) / (10 ** token_decimals["POL"])
             # Format with 3 decimal places
             formatted_balance = format_number(balance, 3)
-            results.append(f"POL: {formatted_balance}")
+            token_values["POL"] = formatted_balance
         else:
-            results.append(f"POL: Error fetching balance - {data.get('message', 'Unknown error')}")
+            token_values["POL"] = f"Error fetching balance - {data.get('message', 'Unknown error')}"
         
         # Get balances for other tokens
         for symbol, token_address in tokens.items():
@@ -166,14 +167,24 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
                     
                     # Format without decimal places for integer tokens
                     formatted_token_balance = format_number(token_balance, 0)
-                    results.append(f"{symbol}: {formatted_token_balance}")
+                    token_values[symbol] = formatted_token_balance
                 else:
-                    results.append(f"{symbol}: Error fetching balance - {token_data.get('message', 'Unknown error')}")
+                    token_values[symbol] = f"Error fetching balance - {token_data.get('message', 'Unknown error')}"
                 
                 # Add a small delay to prevent API rate limiting
                 time.sleep(0.5)
             except Exception as e:
-                results.append(f"{symbol}: Error - {str(e)}")
+                token_values[symbol] = f"Error - {str(e)}"
+        
+        # Format the results with aligned columns
+        # Find the length of the longest token symbol for padding
+        max_symbol_length = max(len(symbol) for symbol in tokens.keys())
+        
+        # Create formatted output with aligned columns
+        for symbol in tokens.keys():
+            if symbol in token_values:
+                # Pad the token symbol to align values
+                results.append(f"{symbol}:{' ' * (max_symbol_length - len(symbol) + 5)}{token_values[symbol]}")
         
         return "\n".join(results)
     
