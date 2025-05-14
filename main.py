@@ -1,14 +1,26 @@
 import json
 import os
 import logging
+import sys
+import time
 from web3 import Web3
 from dotenv import load_dotenv
+from hexbytes import HexBytes
 
-# Configure logging
+# Configure detailed logging to file
+file_handler = logging.FileHandler("transaction_debug.log")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+
+# Configure minimal logging to console
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
+
+# Setup root logger
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    level=logging.DEBUG,
+    handlers=[file_handler, console_handler],
 )
 
 # Load environment variables from .env file
@@ -19,14 +31,17 @@ if not private_key:
     raise ValueError("Private key not found! Please check your .env file.")
 else:
     logging.info("Private key successfully loaded.")
+    logging.debug("Private key validation successful.")
 
 # Load transaction details from JSON file
 try:
     with open("transaction_data.json", "r") as file:
         data = json.load(file)
-    logging.info("Transaction data loaded from JSON.")
+    district_count = len(data.get('districts', []))
+    logging.info(f"Transaction data loaded from JSON. Found {district_count} districts.")
+    logging.debug(f"Districts data: {json.dumps(data.get('districts', []), indent=2)}")
 except Exception as e:
-    logging.error("Failed to load JSON file: %s", e)
+    logging.error(f"Failed to load JSON file: {e}")
     raise
 
 # Connect to Polygon RPC endpoint
@@ -38,124 +53,217 @@ if not web3.is_connected():
 logging.info("Connected to Polygon blockchain.")
 
 # Get sender address from private key
-sender_address = web3.eth.account.from_key(private_key).address
-logging.info(f"Sender address: {sender_address}")
+try:
+    account = web3.eth.account.from_key(private_key)
+    sender_address = account.address
+    logging.info(f"Using sender address: {sender_address}")
+    logging.debug(f"Sender address derived from private key: {sender_address}")
+except Exception as e:
+    logging.error(f"Error deriving sender address: {e}")
+    raise
+
+# Validate sender balance
+try:
+    sender_balance = web3.eth.get_balance(sender_address)
+    sender_balance_pol = web3.from_wei(sender_balance, 'ether')
+    logging.info(f"Sender balance: {sender_balance_pol} POL")
+    if sender_balance <= 0:
+        logging.error(f"Sender has insufficient POL balance: {sender_balance_pol}")
+        raise ValueError(f"Insufficient balance for sender address: {sender_balance_pol} POL")
+except Exception as e:
+    if not isinstance(e, ValueError):
+        logging.error(f"Error checking sender balance: {e}")
+        raise
 
 # Set and convert the target contract address to a checksum address
-contract_address = web3.to_checksum_address("0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f")
+try:
+    contract_address = web3.to_checksum_address("0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f")
+    logging.info(f"Contract address: {contract_address}")
+except Exception as e:
+    logging.error(f"Error with contract address: {e}")
+    raise
 
-# Updated ABI with proper tuple component definitions and marked as payable.
+# Updated ABI matching exactly what we see in the successful transaction
 contract_abi = [
     {
-        "constant": False,
         "inputs": [
             {"name": "eventId", "type": "string"},
-            {"name": "message", "type": "string"},
-            {"name": "tokens", "type": "tuple[]", "components": [
-                {"name": "tokenId", "type": "string"},
-                {"name": "amount", "type": "uint256"},
-                {"name": "receiver", "type": "address"},
-                {"name": "tokenContract", "type": "address"}
-            ]},
-            {"name": "internalTransfer", "type": "tuple", "components": [
-                {"name": "tokenId", "type": "string"},
-                {"name": "amount", "type": "uint256"},
-                {"name": "sender", "type": "address"},
-                {"name": "receiver", "type": "address"}
-            ]}
+            {"name": "message", "type": "string"}
         ],
-        "name": "emitEventWithTransfers",
+        "name": "emitEvent",
         "outputs": [],
-        "stateMutability": "payable",  # Marked as payable so that native tokens can be sent.
+        "stateMutability": "payable",
         "type": "function"
     }
 ]
-logging.info("Contract ABI loaded.")
+logging.debug("Contract ABI loaded.")
 
 # Create contract instance
-contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+try:
+    contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+    logging.debug("Contract instance created.")
+except Exception as e:
+    logging.error(f"Error creating contract instance: {e}")
+    raise
 
 # Initialize counters for tracking successes and failures
 total_districts = len(data.get("districts", []))
 success_count = 0
 failure_count = 0
 
-# Loop through each district in the JSON file
+# Configurable retry mechanism
+MAX_RECEIPT_ATTEMPTS = 10  # Maximum number of attempts to get transaction receipt
+RECEIPT_WAIT_TIME = 5  # Seconds to wait between receipt checks
+MAX_TOTAL_WAIT_TIME = 120  # Maximum total wait time in seconds
+
+# Process all transactions from the districts array
+logging.info(f"Starting to process {total_districts} districts...")
+
 for district in data["districts"]:
-    logging.info(f"Processing District ID: {district['districtId']}")
-    district_success = True
+    district_id = district.get("districtId", "unknown")
+    logging.info(f"\n--- Processing District ID: {district_id} ({success_count + failure_count + 1}/{total_districts}) ---")
+    logging.debug(f"Full district data: {json.dumps(district, indent=2)}")
+    district_success = False
 
-    # Prepare token transfers and convert addresses to checksum
+    # Format eventId - should be FUEL_SYNTHESIZER_SYNTHESIS
+    event_id = district.get("researchType", "FUEL_SYNTHESIZER_SYNTHESIS")
+    
+    # Format message as a simplified JSON string (matching the successful transaction)
     try:
-        tokens_to_transfer = [
-            (
-                token,
-                details["amount"],
-                web3.to_checksum_address(details["receiver"]),
-                web3.to_checksum_address(details["contract"])
-            )
-            for token, details in district["tokens"].items()
-        ]
-        logging.info("Token transfer data prepared.")
+        message = {
+            "districtId": district_id,
+            "buildingId": district.get("buildingId", 0),
+            "buildingType": district.get("buildingType", "FUEL_SYNTHESIZER"),
+            "researchType": district.get("researchType", "FUEL_SYNTHESIZER_SYNTHESIS")
+        }
+        message_json = json.dumps(message)
+        logging.debug(f"Message JSON: {message_json}")
     except Exception as e:
-        logging.error("Error while preparing token transfers for district %s: %s", district["districtId"], e)
-        district_success = False
-        failure_count += 1
-        continue  # Skip this district if there's an error
-
-    # Prepare the internal (native POL) transfer: convert POL to Wei and convert addresses to checksum
-    try:
-        internal_amount = int(float(district["internalTransfers"]["POL"]["amount"]) * 1e18)
-        internal_transfer = (
-            "POL",
-            internal_amount,
-            web3.to_checksum_address(district["internalTransfers"]["POL"]["sender"]),
-            web3.to_checksum_address(district["internalTransfers"]["POL"]["receiver"])
-        )
-        logging.info("Internal POL transfer prepared.")
-    except Exception as e:
-        logging.error("Error while preparing POL transfer for district %s: %s", district["districtId"], e)
-        district_success = False
+        logging.error(f"Error creating message JSON for district {district_id}: {e}")
         failure_count += 1
         continue
 
-    # Build the transaction, including the value to send (native POL)
+    # Get current nonce for sender address
     try:
-        tx = contract.functions.emitEventWithTransfers(
-            district["researchType"],          # eventId
-            json.dumps(district),              # message (serialized district details)
-            tokens_to_transfer,                # ERC-20 token transfers array
-            internal_transfer                  # Native POL transfer tuple
+        nonce = web3.eth.get_transaction_count(sender_address)
+        logging.debug(f"Current nonce for sender: {nonce}")
+    except Exception as e:
+        logging.error(f"Error getting nonce: {e}")
+        failure_count += 1
+        continue
+
+    # Get POL amount from the internal transfer
+    try:
+        amount_in_pol = float(district["internalTransfers"]["POL"]["amount"])
+        amount_in_wei = int(amount_in_pol * 1e18)
+        logging.info(f"Transfer amount: {amount_in_pol} POL")
+        logging.debug(f"Transfer amount in wei: {amount_in_wei}")
+    except Exception as e:
+        logging.error(f"Error calculating transfer amount: {e}")
+        failure_count += 1
+        continue
+    
+    # Use gas price from successful transaction
+    gas_price = web3.to_wei(600.126386178, 'gwei')
+    logging.info(f"Gas price: {web3.from_wei(gas_price, 'gwei')} Gwei")
+
+    # Build the transaction
+    try:
+        tx = contract.functions.emitEvent(
+            event_id,      # eventId - like "FUEL_SYNTHESIZER_SYNTHESIS"
+            message_json   # message - JSON string like in successful TX
         ).build_transaction({
             "from": sender_address,
-            "gas": 1000000,
-            "gasPrice": web3.to_wei("600.200050874", "gwei"),  # Using a lower gas price similar to successful TX
-            "nonce": web3.eth.get_transaction_count(sender_address),
-            "value": internal_amount           # Include the native POL value (in Wei)
+            "gas": 102000,  # Similar to successful TX gas limit
+            "gasPrice": gas_price,
+            "nonce": nonce,
+            "value": amount_in_wei
         })
-        logging.info("Transaction built for district %s.", district["districtId"])
+        
+        # Log the transaction details for debugging
+        tx_details = {
+            "from": tx["from"],
+            "to": tx["to"],
+            "value": f"{web3.from_wei(tx['value'], 'ether')} POL",
+            "gas": tx["gas"],
+            "gasPrice": f"{web3.from_wei(tx['gasPrice'], 'gwei')} Gwei",
+            "nonce": tx["nonce"]
+        }
+        logging.debug(f"Transaction details: {json.dumps(tx_details, indent=2)}")
+        
     except Exception as e:
-        logging.error("Error while building transaction for district %s: %s", district["districtId"], e)
-        district_success = False
+        logging.error(f"Error building transaction for district {district_id}: {e}")
         failure_count += 1
         continue
+
+    # # Ask for confirmation before sending
+    # confirmation = input(f"Ready to send transaction for District {district_id}. Proceed? (y/n): ")
+    # if confirmation.lower() != 'y':
+    #     logging.info(f"Transaction for District {district_id} skipped by user.")
+    #     continue
 
     # Sign and send the transaction
     try:
         signed_tx = web3.eth.account.sign_transaction(tx, private_key)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
-        logging.info(f"Transaction sent for District {district['districtId']}: {tx_hash.hex()}")
+        tx_hash_hex = HexBytes(tx_hash).hex()
+        logging.info(f"Transaction sent: {tx_hash_hex}")
+        logging.debug(f"Full transaction hash: {tx_hash_hex}")
+        
+        # Wait for transaction receipt with controlled retry mechanism
+        logging.info("Waiting for transaction confirmation...")
+        start_time = time.time()
+        receipt = None
+        for attempt in range(MAX_RECEIPT_ATTEMPTS):
+            try:
+                receipt = web3.eth.get_transaction_receipt(tx_hash)
+                if receipt:
+                    break
+            except Exception as e:
+                logging.debug(f"Receipt check attempt {attempt + 1} failed: {e}")
+            
+            # Check total wait time
+            if time.time() - start_time > MAX_TOTAL_WAIT_TIME:
+                logging.error("Maximum total wait time exceeded.")
+                break
+            
+            # Wait before next attempt
+            time.sleep(RECEIPT_WAIT_TIME)
+        
+        # Check receipt status
+        if receipt:
+            if receipt.get('status') == 1:
+                logging.info(f"Transaction succeeded! Gas used: {receipt['gasUsed']}")
+                success_count += 1
+                district_success = True
+            else:
+                logging.error(f"Transaction failed! Gas used: {receipt['gasUsed']}")
+                failure_count += 1
+        else:
+            logging.error("Could not retrieve transaction receipt.")
+            failure_count += 1
+        
     except Exception as e:
-        logging.error("Error sending transaction for district %s: %s", district["districtId"], e)
-        district_success = False
+        logging.error(f"Error sending transaction for district {district_id}: {e}")
         failure_count += 1
         continue
 
-    if district_success:
-        success_count += 1
+    # Optional: Add a delay between transactions to avoid nonce issues
+    if district_id != data["districts"][-1].get("districtId", "unknown"):
+        time.sleep(2)  # 2 second delay between transactions
 
 # Final log statement depending on success or failures
+logging.info("\n--- SUMMARY ---")
+logging.info(f"Processed: {success_count + failure_count}/{total_districts} districts")
+logging.info(f"Successful: {success_count}/{total_districts}")
+logging.info(f"Failed: {failure_count}/{total_districts}")
+
 if success_count == total_districts:
     logging.info("All transactions executed successfully!")
+elif success_count > 0:
+    logging.info(f"Partial success: {success_count}/{total_districts} transactions completed.")
 else:
-    logging.info("Processed transactions for %d/%d districts successfully.", success_count, total_districts)
+    logging.error("All transactions failed.")
+
+# Exit the script to prevent any potential hanging
+sys.exit(0)
