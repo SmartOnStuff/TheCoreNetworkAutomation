@@ -24,6 +24,44 @@ def send_telegram_notification(text, chat_id):
         print(f"Error sending Telegram notification: {e}")
 
 
+def format_number(value, decimals=0):
+    """
+    Format a number with apostrophes as thousand separators.
+    If decimals is specified, round to that many decimal places.
+    
+    Args:
+        value (float): The number to format
+        decimals (int): Number of decimal places to show
+    
+    Returns:
+        str: Formatted number string
+    """
+    if decimals > 0:
+        # Round to specified decimal places
+        rounded_value = round(value, decimals)
+        # Split into integer and decimal parts
+        int_part, dec_part = str(rounded_value).split('.')
+        # Pad decimal part if needed
+        dec_part = dec_part.ljust(decimals, '0')
+        # Format integer part with apostrophes
+        formatted_int = ''
+        for i, char in enumerate(reversed(int_part)):
+            if i > 0 and i % 3 == 0:
+                formatted_int = "'" + formatted_int
+            formatted_int = char + formatted_int
+        # Combine parts
+        return f"{formatted_int}.{dec_part[:decimals]}"
+    else:
+        # Format integer with apostrophes
+        int_value = int(value)
+        formatted = ''
+        for i, char in enumerate(reversed(str(int_value))):
+            if i > 0 and i % 3 == 0:
+                formatted = "'" + formatted
+            formatted = char + formatted
+        return formatted
+
+
 def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
     """
     Get token balances for a wallet address on Polygon network using v2 API with chainid parameter.
@@ -92,7 +130,9 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         if data["status"] == "1":
             # Convert from wei to MATIC/POL (18 decimals)
             balance = float(data["result"]) / (10 ** token_decimals["POL"])
-            results.append(f"POL: {balance:.6f}")
+            # Format with 3 decimal places
+            formatted_balance = format_number(balance, 3)
+            results.append(f"POL: {formatted_balance}")
         else:
             results.append(f"POL: Error fetching balance - {data.get('message', 'Unknown error')}")
         
@@ -123,7 +163,10 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
                     token_balance = float(token_data["result"])
                     if decimals > 0:
                         token_balance = token_balance / (10 ** decimals)
-                    results.append(f"{symbol}: {token_balance:.6f}")
+                    
+                    # Format without decimal places for integer tokens
+                    formatted_token_balance = format_number(token_balance, 0)
+                    results.append(f"{symbol}: {formatted_token_balance}")
                 else:
                     results.append(f"{symbol}: Error fetching balance - {token_data.get('message', 'Unknown error')}")
                 
