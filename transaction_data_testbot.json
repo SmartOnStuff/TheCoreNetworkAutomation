@@ -1,0 +1,55 @@
+{
+    "districts": [
+      {
+        "districtId": 4344,
+        "buildingId": 307,
+        "buildingType": "FUEL_SYNTHESIZER",
+        "researchType": "FUEL_SYNTHESIZER_SYNTHESIS",
+        "tokens": {
+          "H": {
+            "amount": 1000000,
+            "receiver": "0x0000000000000000000000000000000000000000",
+            "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
+          },
+          "He3": {
+            "amount": 300000,
+            "receiver": "0x0000000000000000000000000000000000000000",
+            "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
+          }
+        },
+        "internalTransfers": {
+          "POL": {
+            "amount": 0.01,
+            "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
+            "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
+          }
+        }
+      },
+{
+        "districtId": 4343,
+        "buildingId": 306,
+        "buildingType": "FUEL_SYNTHESIZER",
+        "researchType": "FUEL_SYNTHESIZER_SYNTHESIS",
+        "tokens": {
+          "H": {
+            "amount": 1000000,
+            "receiver": "0x0000000000000000000000000000000000000000",
+            "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
+          },
+          "He3": {
+            "amount": 300000,
+            "receiver": "0x0000000000000000000000000000000000000000",
+            "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
+          }
+        },
+        "internalTransfers": {
+          "POL": {
+            "amount": 0.01,
+            "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
+            "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
+          }
+        }
+      }
+    ]
+  }
+  
