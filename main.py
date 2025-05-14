@@ -188,7 +188,7 @@ for district in data["districts"]:
         continue
     
     # Use gas price from successful transaction
-    gas_price = web3.to_wei(600.126386178, 'gwei')
+    gas_price = web3.to_wei(50.126386178, 'gwei')
     logging.info(f"Gas price: {web3.from_wei(gas_price, 'gwei')} Gwei")
 
     # Build the transaction
