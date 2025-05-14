@@ -184,7 +184,7 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         for symbol in tokens.keys():
             if symbol in token_values:
                 # Pad the token symbol to align values
-                results.append(f"{symbol}:{' ' * (max_symbol_length - len(symbol) + 5)}{token_values[symbol]}")
+                results.append(f"{token_values[symbol]}{' ' * (max_symbol_length - len(symbol) + 5)}{symbol}")
         
         return "\n".join(results)
     
