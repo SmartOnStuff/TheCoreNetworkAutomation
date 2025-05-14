@@ -53,19 +53,19 @@ except Exception as e:
 
 # Function to send notifications to Telegram chat(s) using the Telegram Bot API.
 # Requires a valid TELEGRAM_TOKEN and a list of chat IDs to send the message to.
-def send_telegram_notification(text, id_list):
+def send_telegram_notification(text, chat_id):
     """Send notification to Telegram."""
     if not TELEGRAM_TOKEN:
         print("Telegram token not found. Skipping notification.")
         return
         
-    for chat_id in id_list:
-        url_req = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={chat_id}&text={text}"
-        try:
-            results = requests.get(url_req)
-            print(f"Telegram notification sent: {results.json()}")
-        except Exception as e:
-            print(f"Error sending Telegram notification: {e}")
+
+    url_req = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={chat_id}&text={text}"
+    try:
+        results = requests.get(url_req)
+        print(f"Telegram notification sent: {results.json()}")
+    except Exception as e:
+        print(f"Error sending Telegram notification: {e}")
 
 
 # Connect to Polygon RPC endpoint
