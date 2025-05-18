@@ -2,8 +2,8 @@ name: Daily Fuel Synthesis on TheCoreNetwork game
 
 on:
   workflow_dispatch:
-  #schedule:
-    #- cron: '0 2 * * *'  # Runs every day at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'  # Runs every day at 2 AM UTC
 
 jobs:
   random-delay:
