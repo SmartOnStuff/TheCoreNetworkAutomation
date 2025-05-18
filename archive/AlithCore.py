@@ -69,7 +69,7 @@ def get_balances(wallet_address: str = None) -> str:
         
         # Call the balances module function
         balances = check_balances(address)
-        return f"Token Balances for {address}:  {balances}"
+        return f"Token Balances for {address}:\n\n{balances}"
     except Exception as e:
         logger.error(f"Error checking balances: {e}")
         return f"Error checking balances: {str(e)}"
@@ -104,10 +104,10 @@ def perform_synthesis() -> str:
         
         # Format response
         summary = (
-            f"Synthesis Summary: "
-            f"Successful: {results['successful']}/{results['total']} "
-            f"Failed: {results['failed']}/{results['total']}  "
-            f"Detailed Results: "
+            f"Synthesis Summary:\n"
+            f"✅ Successful: {results['successful']}/{results['total']}\n"
+            f"❌ Failed: {results['failed']}/{results['total']}\n\n"
+            f"Detailed Results:\n"
         )
         
         for detail in results['details']:
@@ -115,9 +115,9 @@ def perform_synthesis() -> str:
             result = detail['result']
             
             if result['success']:
-                summary += f"District {district_id}: ✅ Success - Tx: {result.get('tx_hash', 'N/A')} "
+                summary += f"District {district_id}: ✅ Success - Tx: {result.get('tx_hash', 'N/A')}\n"
             else:
-                summary += f"District {district_id}: ❌ Failed - {result.get('message', 'Unknown error')} "
+                summary += f"District {district_id}: ❌ Failed - {result.get('message', 'Unknown error')}\n"
         
         return summary
         
@@ -148,7 +148,7 @@ def mint_new_district(district_name: str, location: str) -> str:
         result = mint_district(params)
         
         # For now, this will return the placeholder message
-        return f"District Minting Request:  Name: {district_name} Location: {location}  {result['message']}"
+        return f"District Minting Request:\n\nName: {district_name}\nLocation: {location}\n\n{result['message']}"
     except Exception as e:
         logger.error(f"Error minting district: {e}")
         return f"Error minting district: {str(e)}"

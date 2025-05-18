@@ -1,36 +1,14 @@
-#balances.py
-# This script fetches token balances for a specified wallet address on the Polygon network using the Etherscan API.
+# balances.py
+# Module for fetching token balances on The Core Network platform
 
 import requests
 import time
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
-ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY")
-WALLET_ADDRESS = os.getenv("WALLET_ADDRESS")
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-
-# Function to send notifications to Telegram chat(s) using the Telegram Bot API
-def send_telegram_notification(text, chat_id):
-    """Send notification to Telegram."""
-    if not TELEGRAM_TOKEN:
-        print("Telegram token not found. Skipping notification.")
-        return
-        
-    url_req = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage?chat_id={chat_id}&text={text}"
-    try:
-        results = requests.get(url_req)
-        print(f"Telegram notification sent: {results.json()}")
-    except Exception as e:
-        print(f"Error sending Telegram notification: {e}")
-
+import logging
 
 def format_number(value, decimals=0):
     """
     Format a number with apostrophes as thousand separators.
-    If decimals is specified, round to that many decimal places.
     
     Args:
         value (float): The number to format
@@ -65,16 +43,16 @@ def format_number(value, decimals=0):
         return formatted
 
 
-def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
+def get_token_balances(wallet_address, api_key):
     """
-    Get token balances for a wallet address on Polygon network using v2 API with chainid parameter.
+    Get token balances for a wallet address on Polygon network.
     
     Args:
         wallet_address (str): The wallet address to check
         api_key (str): Your Etherscan/Polygonscan API key
         
     Returns:
-        str: Formatted string with token balances on separate lines with aligned columns
+        str: Formatted string with token balances
     """
     # Validate inputs
     if not wallet_address or not api_key:
@@ -181,7 +159,6 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
                 token_values[symbol] = f"Error - {str(e)}"
         
         # Format the results with aligned columns
-        # Create formatted output with values first, then token symbols
         for symbol in tokens.keys():
             if symbol in token_values:
                 value = token_values[symbol]
@@ -194,19 +171,25 @@ def get_polygon_token_balances(wallet_address: str, api_key: str) -> str:
         return f"Error fetching balances: {str(e)}"
 
 
-if __name__ == "__main__":
-    # Example usage
-    wallet_address = WALLET_ADDRESS
-    api_key = ETHERSCAN_API_KEY
+def check_balances(wallet_address):
+    """
+    Main function to be called by the agent to check token balances.
+    Fetches API key from environment and returns formatted balance information.
     
-    if not wallet_address or not api_key:
-        print("Please set WALLET_ADDRESS and ETHERSCAN_API_KEY in your .env file")
-    else:
-        result = get_polygon_token_balances(wallet_address, api_key)
-        print(result)
-        
-        # Send the results to Telegram if configured
-        if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
-            send_telegram_notification(result, TELEGRAM_CHAT_ID)
-        else:
-            print("Telegram notification skipped: missing token or chat ID")
+    Args:
+        wallet_address (str): Wallet address to check
+    
+    Returns:
+        str: Formatted balance information
+    """
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    api_key = os.getenv("ETHERSCAN_API_KEY")
+    
+    if not api_key:
+        return "Error: ETHERSCAN_API_KEY not found in environment variables"
+    
+    logging.info(f"Checking balances for wallet: {wallet_address}")
+    result = get_token_balances(wallet_address, api_key)
+    return result

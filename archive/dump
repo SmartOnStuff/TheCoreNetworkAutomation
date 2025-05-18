@@ -1,0 +1,849 @@
+# balances.py
+# Module for fetching token balances on The Core Network platform
+
+import requests
+import time
+import os
+import logging
+
+def format_number(value, decimals=0):
+    """
+    Format a number with apostrophes as thousand separators.
+    
+    Args:
+        value (float): The number to format
+        decimals (int): Number of decimal places to show
+    
+    Returns:
+        str: Formatted number string
+    """
+    if decimals > 0:
+        # Round to specified decimal places
+        rounded_value = round(value, decimals)
+        # Split into integer and decimal parts
+        int_part, dec_part = str(rounded_value).split('.')
+        # Pad decimal part if needed
+        dec_part = dec_part.ljust(decimals, '0')
+        # Format integer part with apostrophes
+        formatted_int = ''
+        for i, char in enumerate(reversed(int_part)):
+            if i > 0 and i % 3 == 0:
+                formatted_int = "'" + formatted_int
+            formatted_int = char + formatted_int
+        # Combine parts
+        return f"{formatted_int}.{dec_part[:decimals]}"
+    else:
+        # Format integer with apostrophes
+        int_value = int(value)
+        formatted = ''
+        for i, char in enumerate(reversed(str(int_value))):
+            if i > 0 and i % 3 == 0:
+                formatted = "'" + formatted
+            formatted = char + formatted
+        return formatted
+
+
+def get_token_balances(wallet_address, api_key):
+    """
+    Get token balances for a wallet address on Polygon network.
+    
+    Args:
+        wallet_address (str): The wallet address to check
+        api_key (str): Your Etherscan/Polygonscan API key
+        
+    Returns:
+        str: Formatted string with token balances
+    """
+    # Validate inputs
+    if not wallet_address or not api_key:
+        return "Error: Wallet address and API key are required"
+    
+    if not wallet_address.startswith("0x") or len(wallet_address) != 42:
+        return "Error: Invalid wallet address format"
+    
+    # Token addresses to check (including MATIC/POL)
+    tokens = {
+        "POL": "native",  # MATIC/POL native token
+        "Si": "0xD2fDBb49DBA431fb728a046c5900618deED064fF",
+        "REE": "0x813a5B8eE3932B5ce1c4B2b6444d599A128a6C71",
+        "C": "0xf986430B685e9aB18E0108C604d31b71971DB5F7",
+        "Ti": "0xF53CE43b19f04E84890E3c347Dc4A366f3D75619",
+        "H": "0x6989f166E49b378D38c4A5d2b00D76344dEa8Cec",
+        "He3": "0xc316115D4ce93Af8E081d8555820fF74eFD5b5AE",
+        "COS": "0x2c6e0C3EC2107144CcbadD6b003eC13b72EB44E7",
+        "CN": "0x7BeD50d99CfdBea233A2F2E3DCCd4F9A0acAfe6c",
+        "CRS": "0x4F80a7627bfb9fdc54d7184e0DDeB2c76596cC3C"
+    }
+    
+    # Token decimals - assuming all are 18 but can be adjusted if needed
+    token_decimals = {
+        "POL": 18,
+        "Si": 0,
+        "REE": 0,
+        "C": 0,
+        "Ti": 0,
+        "H": 0,
+        "He3": 0,
+        "COS": 0,
+        "CN": 0,
+        "CRS": 0
+    }
+    
+    results = []
+    token_values = {}  # Store token values for aligned formatting later
+    
+    # Using proper base URL for v2 API from Etherscan
+    base_url = "https://api.etherscan.io/v2/api"
+    # Polygon chainid is 137
+    chain_id = 137
+    
+    try:
+        # First get POL (MATIC) balance - native token
+        polygon_params = {
+            "chainid": chain_id,
+            "module": "account",
+            "action": "balance",
+            "address": wallet_address,
+            "apikey": api_key
+        }
+        
+        response = requests.get(base_url, params=polygon_params)
+        data = response.json()
+        
+        if data["status"] == "1":
+            # Convert from wei to MATIC/POL (18 decimals)
+            balance = float(data["result"]) / (10 ** token_decimals["POL"])
+            # Format with 3 decimal places
+            formatted_balance = format_number(balance, 3)
+            token_values["POL"] = formatted_balance
+        else:
+            token_values["POL"] = f"Error fetching balance - {data.get('message', 'Unknown error')}"
+        
+        # Get balances for other tokens
+        for symbol, token_address in tokens.items():
+            # Skip POL as we already got it
+            if symbol == "POL":
+                continue
+            
+            # Use the tokenbalance endpoint with v2 API format
+            token_params = {
+                "chainid": chain_id,
+                "module": "account",
+                "action": "tokenbalance",
+                "contractaddress": token_address,
+                "address": wallet_address,
+                "tag": "latest",
+                "apikey": api_key
+            }
+            
+            try:
+                token_response = requests.get(base_url, params=token_params)
+                token_data = token_response.json()
+                
+                if token_data["status"] == "1":
+                    # For tokens with 0 decimals, we don't need to divide
+                    decimals = token_decimals.get(symbol, 0)
+                    token_balance = float(token_data["result"])
+                    if decimals > 0:
+                        token_balance = token_balance / (10 ** decimals)
+                    
+                    # Format without decimal places for integer tokens
+                    formatted_token_balance = format_number(token_balance, 0)
+                    token_values[symbol] = formatted_token_balance
+                else:
+                    token_values[symbol] = f"Error fetching balance - {token_data.get('message', 'Unknown error')}"
+                
+                # Add a small delay to prevent API rate limiting
+                time.sleep(0.5)
+            except Exception as e:
+                token_values[symbol] = f"Error - {str(e)}"
+        
+        # Format the results with aligned columns
+        for symbol in tokens.keys():
+            if symbol in token_values:
+                value = token_values[symbol]
+                # Add consistent padding after the value
+                results.append(f"{value}{' ' * 10}{symbol}")
+        
+        return "\n".join(results)
+    
+    except Exception as e:
+        return f"Error fetching balances: {str(e)}"
+
+
+def check_balances(wallet_address):
+    """
+    Main function to be called by the agent to check token balances.
+    Fetches API key from environment and returns formatted balance information.
+    
+    Args:
+        wallet_address (str): Wallet address to check
+    
+    Returns:
+        str: Formatted balance information
+    """
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    api_key = os.getenv("ETHERSCAN_API_KEY")
+    
+    if not api_key:
+        return "Error: ETHERSCAN_API_KEY not found in environment variables"
+    
+    logging.info(f"Checking balances for wallet: {wallet_address}")
+    result = get_token_balances(wallet_address, api_key)
+    return result
+
+# synthesis.py
+# Module for performing synthesis operations on The Core Network platform
+
+import json
+import os
+import logging
+import time
+from web3 import Web3
+from hexbytes import HexBytes
+import requests
+
+
+def send_telegram_notification(text, chat_id, token):
+    """
+    Send notification to Telegram.
+    
+    Args:
+        text (str): Message text to send
+        chat_id (str): Telegram chat ID
+        token (str): Telegram bot token
+        
+    Returns:
+        bool: True if sent successfully, False otherwise
+    """
+    if not token:
+        logging.info("Telegram token not found. Skipping notification.")
+        return False
+        
+    url_req = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={text}"
+    try:
+        results = requests.get(url_req)
+        logging.info(f"Telegram notification sent: {results.json()}")
+        return True
+    except Exception as e:
+        logging.error(f"Error sending Telegram notification: {e}")
+        return False
+
+
+def perform_synthesis(district_data):
+    """
+    Perform synthesis operation for a district.
+    
+    Args:
+        district_data (dict): District data containing all necessary information for synthesis
+    
+    Returns:
+        dict: Result of the synthesis operation with status and details
+    """
+    # Load environment variables 
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    # Get environment variables
+    private_key = os.getenv("PRIVATE_KEY")
+    telegram_token = os.getenv('TELEGRAM_TOKEN')
+    telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Validate required environment variables
+    if not private_key:
+        error_msg = "Private key not found! Please check your .env file."
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Connect to Polygon RPC endpoint
+    rpc_url = "https://polygon-rpc.com"
+    web3 = Web3(Web3.HTTPProvider(rpc_url))
+    if not web3.is_connected():
+        error_msg = "Failed to connect to Polygon blockchain."
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    logging.info("Connected to Polygon blockchain.")
+    
+    # Get sender address from private key
+    try:
+        account = web3.eth.account.from_key(private_key)
+        sender_address = account.address
+        logging.info(f"Using sender address: {sender_address}")
+    except Exception as e:
+        error_msg = f"Error deriving sender address: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Validate sender balance
+    try:
+        sender_balance = web3.eth.get_balance(sender_address)
+        sender_balance_pol = web3.from_wei(sender_balance, 'ether')
+        logging.info(f"Sender balance: {sender_balance_pol} POL")
+        if sender_balance <= 0:
+            error_msg = f"Insufficient balance for sender address: {sender_balance_pol} POL"
+            logging.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg
+            }
+    except Exception as e:
+        error_msg = f"Error checking sender balance: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Set and convert the target contract address to a checksum address
+    try:
+        contract_address = web3.to_checksum_address("0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f")
+        logging.info(f"Contract address: {contract_address}")
+    except Exception as e:
+        error_msg = f"Error with contract address: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Contract ABI
+    contract_abi = [
+        {
+            "inputs": [
+                {"name": "eventId", "type": "string"},
+                {"name": "message", "type": "string"}
+            ],
+            "name": "emitEvent",
+            "outputs": [],
+            "stateMutability": "payable",
+            "type": "function"
+        }
+    ]
+    
+    # Create contract instance
+    try:
+        contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+        logging.info("Contract instance created.")
+    except Exception as e:
+        error_msg = f"Error creating contract instance: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Extract district information
+    district_id = district_data.get("districtId", "unknown")
+    logging.info(f"Processing District ID: {district_id}")
+    
+    # Format eventId - should be FUEL_SYNTHESIZER_SYNTHESIS
+    event_id = district_data.get("researchType", "FUEL_SYNTHESIZER_SYNTHESIS")
+    
+    # Format message as a simplified JSON string
+    try:
+        message = {
+            "districtId": district_id,
+            "buildingId": district_data.get("buildingId", 0),
+            "buildingType": district_data.get("buildingType", "FUEL_SYNTHESIZER"),
+            "researchType": district_data.get("researchType", "FUEL_SYNTHESIZER_SYNTHESIS")
+        }
+        message_json = json.dumps(message)
+        logging.info(f"Message JSON: {message_json}")
+    except Exception as e:
+        error_msg = f"Error creating message JSON for district {district_id}: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Get current nonce for sender address
+    try:
+        nonce = web3.eth.get_transaction_count(sender_address)
+        logging.info(f"Current nonce for sender: {nonce}")
+    except Exception as e:
+        error_msg = f"Error getting nonce: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Get POL amount from the internal transfer
+    try:
+        amount_in_pol = float(district_data["internalTransfers"]["POL"]["amount"])
+        amount_in_wei = int(amount_in_pol * 1e18)
+        logging.info(f"Transfer amount: {amount_in_pol} POL")
+    except Exception as e:
+        error_msg = f"Error calculating transfer amount: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Use gas price from successful transaction
+    gas_price = web3.to_wei(50.126386178, 'gwei')
+    logging.info(f"Gas price: {web3.from_wei(gas_price, 'gwei')} Gwei")
+    
+    # Build the transaction
+    try:
+        tx = contract.functions.emitEvent(
+            event_id,      # eventId - like "FUEL_SYNTHESIZER_SYNTHESIS"
+            message_json   # message - JSON string
+        ).build_transaction({
+            "from": sender_address,
+            "gas": 102000,  # Gas limit
+            "gasPrice": gas_price,
+            "nonce": nonce,
+            "value": amount_in_wei
+        })
+        
+        # Log the transaction details for debugging
+        tx_details = {
+            "from": tx["from"],
+            "to": tx["to"],
+            "value": f"{web3.from_wei(tx['value'], 'ether')} POL",
+            "gas": tx["gas"],
+            "gasPrice": f"{web3.from_wei(tx['gasPrice'], 'gwei')} Gwei",
+            "nonce": tx["nonce"]
+        }
+        logging.info(f"Transaction details: {json.dumps(tx_details, indent=2)}")
+        
+    except Exception as e:
+        error_msg = f"Error building transaction for district {district_id}: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+    
+    # Sign and send the transaction
+    try:
+        signed_tx = web3.eth.account.sign_transaction(tx, private_key)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        tx_hash_hex = HexBytes(tx_hash).hex()
+        logging.info(f"Transaction sent: {tx_hash_hex}")
+        
+        # Wait for transaction receipt with controlled retry mechanism
+        logging.info("Waiting for transaction confirmation...")
+        max_receipt_attempts = 10
+        receipt_wait_time = 5
+        
+        start_time = time.time()
+        receipt = None
+        
+        for attempt in range(max_receipt_attempts):
+            try:
+                receipt = web3.eth.get_transaction_receipt(tx_hash)
+                if receipt:
+                    break
+            except Exception as e:
+                logging.info(f"Receipt check attempt {attempt + 1} failed: {e}")
+            
+            # Wait before next attempt
+            time.sleep(receipt_wait_time)
+        
+        # Check receipt status
+        if receipt:
+            if receipt.get('status') == 1:
+                success_msg = f"Transaction succeeded! Gas used: {receipt['gasUsed']}"
+                logging.info(success_msg)
+                
+                # Send telegram notification if configured
+                if telegram_token and telegram_chat_id:
+                    notification = f"Synthesis successful!\nDistrict: {district_id}\nTx: {tx_hash_hex}\nGas used: {receipt['gasUsed']}"
+                    send_telegram_notification(notification, telegram_chat_id, telegram_token)
+                
+                return {
+                    "success": True,
+                    "message": success_msg,
+                    "tx_hash": tx_hash_hex,
+                    "gas_used": receipt['gasUsed']
+                }
+            else:
+                error_msg = f"Transaction failed! Gas used: {receipt['gasUsed']}"
+                logging.error(error_msg)
+                return {
+                    "success": False,
+                    "message": error_msg,
+                    "tx_hash": tx_hash_hex
+                }
+        else:
+            error_msg = "Could not retrieve transaction receipt."
+            logging.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg,
+                "tx_hash": tx_hash_hex
+            }
+        
+    except Exception as e:
+        error_msg = f"Error sending transaction for district {district_id}: {e}"
+        logging.error(error_msg)
+        return {
+            "success": False,
+            "message": error_msg
+        }
+
+
+def run_synthesis_for_districts(districts_data):
+    """
+    Run synthesis for multiple districts.
+    
+    Args:
+        districts_data (list): List of district data objects
+        
+    Returns:
+        dict: Summary of synthesis operations with success and failure counts
+    """
+    if not districts_data:
+        return {
+            "success": False,
+            "message": "No districts provided for synthesis"
+        }
+    
+    total_districts = len(districts_data)
+    success_count = 0
+    failure_count = 0
+    results = []
+    
+    for district in districts_data:
+        result = perform_synthesis(district)
+        results.append({
+            "district_id": district.get("districtId", "unknown"),
+            "result": result
+        })
+        
+        if result["success"]:
+            success_count += 1
+        else:
+            failure_count += 1
+        
+        # Add a delay between transactions to avoid nonce issues
+        if district != districts_data[-1]:
+            time.sleep(2)
+    
+    # Create summary
+    summary = {
+        "total": total_districts,
+        "successful": success_count,
+        "failed": failure_count,
+        "details": results
+    }
+    
+    # Send summary notification to Telegram
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    telegram_token = os.getenv('TELEGRAM_TOKEN')
+    telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    
+    if telegram_token and telegram_chat_id:
+        notification = f"Synthesis Summary:\n" \
+                      f"Processed: {success_count + failure_count}/{total_districts} districts\n" \
+                      f"Successful: {success_count}/{total_districts}\n" \
+                      f"Failed: {failure_count}/{total_districts}"
+        send_telegram_notification(notification, telegram_chat_id, telegram_token)
+    
+    return summary
+
+# mintdistrict.py
+# Module for minting districts on The Core Network platform (TO BE IMPLEMENTED)
+
+import logging
+import os
+import json
+
+def mint_district(district_params):
+    """
+    TODO: Implement district minting functionality
+    
+    This function will handle the process of minting a new district on The Core Network.
+    Similar to synthesis, it will likely involve creating a transaction on the blockchain.
+    
+    Args:
+        district_params (dict): Parameters for district minting
+            Expected keys:
+            - district_name: Name of the district to mint
+            - location: Coordinates or location identifier
+            - additional district properties as needed
+            
+    Returns:
+        dict: Result of the minting operation with status and details
+    """
+    logging.info("District minting functionality not yet implemented")
+    
+    # This is a placeholder for the future implementation
+    return {
+        "success": False,
+        "message": "District minting functionality not yet implemented",
+        "params_received": district_params
+    }
+
+
+def validate_district_params(params):
+    """
+    TODO: Implement validation for district parameters
+    
+    Args:
+        params (dict): Parameters to validate
+        
+    Returns:
+        tuple: (is_valid, error_message)
+    """
+    # This is a placeholder for parameter validation logic
+    required_fields = ["district_name", "location"]
+    
+    for field in required_fields:
+        if field not in params:
+            return False, f"Missing required field: {field}"
+    
+    return True, "Parameters valid"
+
+
+def get_minting_cost(district_params):
+    """
+    TODO: Calculate the cost to mint a district with the given parameters
+    
+    Args:
+        district_params (dict): Parameters for the district
+        
+    Returns:
+        dict: Cost information including token amounts required
+    """
+    # This is a placeholder for cost calculation logic
+    return {
+        "pol_cost": 5.0,  # Example POL cost
+        "other_requirements": {
+            "Si": 1000,
+            "REE": 500
+        }
+    }
+
+
+#Agent.py
+
+from web3 import Web3
+from eth_account import Account
+import json
+import time
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from the .env file
+load_dotenv()
+
+# Get environment variables
+deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+clean_WALLET_ADDRESS = os.getenv("WALLET_ADDRESS")
+
+# Constants
+WALLET_ADDRESS = Web3.to_checksum_address(clean_WALLET_ADDRESS)  # Replace with your wallet address
+RPC_URL = "https://andromeda.metis.io/?owner=1088"  # Replace with your preferred RPC URL
+AAVE_POOL_ADDRESS = Web3.to_checksum_address("0x90df02551bb792286e8d4f13e0e357b4bf1d6a57")  # Pool address
+TOKEN_ADDRESSES = {
+    "usdc": Web3.to_checksum_address("0xEA32A96608495e54156Ae48931A7c20f0dcc1a21"),
+    "usdt": Web3.to_checksum_address("0xbB06DCA3AE6887fAbF931640f67cab3e3a16F4dC"),
+    "dai": Web3.to_checksum_address("0x4c078361FC9BbB78DF910800A991C7c3DD2F6ce0")
+}
+ABI_PATHS = {
+    "pool": "./assets/AAVE_LENDING_POOL.ABI",
+    "usdc": "./assets/USDC.ABI",
+    "usdt": "./assets/USDT.ABI",
+    "dai": "./assets/DAI.ABI"
+}
+
+# Initialize web3 connection
+web3 = Web3(Web3.HTTPProvider(RPC_URL))
+if not web3.is_connected():
+    raise Exception("Unable to connect to RPC URL")
+
+print(f"Connected to network: {web3.is_connected()}")
+
+# Load ABI from file
+def load_abi(file_path):
+    with open(file_path, 'r') as file:
+        return json.load(file)
+
+# Prepare contracts
+pool_abi = load_abi(ABI_PATHS["pool"])
+pool_contract = web3.eth.contract(address=Web3.to_checksum_address("0x90df02551bb792286e8d4f13e0e357b4bf1d6a57"), abi=pool_abi)
+
+def approve_token_spend(token, amount):
+    """Approve the Aave lending pool to spend tokens."""
+    token_address = TOKEN_ADDRESSES[token]
+    token_abi = load_abi(ABI_PATHS[token])
+    token_contract = web3.eth.contract(address=token_address, abi=token_abi)
+    nonce = web3.eth.get_transaction_count(WALLET_ADDRESS)
+    gas_price = web3.eth.gas_price
+    estimated_gas = 200000
+
+    tx = token_contract.functions.approve(
+        pool_contract.address, amount
+    ).build_transaction({
+        'chainId': 1088,  # Update to your chain ID
+        'gas': estimated_gas,
+        'gasPrice': gas_price,
+        'nonce': nonce
+    })
+
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+    print(f"Approval transaction sent: {tx_hash.hex()}")
+
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    print(f"Approval transaction confirmed: {receipt.status}")
+    return receipt
+
+def perform_action(action, token, amount):
+    """Perform the specified action on Aave."""
+    nonce = web3.eth.get_transaction_count(WALLET_ADDRESS)
+    gas_price = web3.eth.gas_price
+    estimated_gas = 300000  # Adjust as needed
+    token_address = TOKEN_ADDRESSES[token]
+
+    if action == "lend":
+        tx = pool_contract.functions.supply(
+            token_address, amount, WALLET_ADDRESS, 0
+        ).build_transaction({
+            'chainId': 1088,
+            'gas': estimated_gas,
+            'gasPrice': gas_price,
+            'nonce': nonce
+        })
+    elif action == "borrow":
+        tx = pool_contract.functions.borrow(
+            token_address, amount, 2, 0, WALLET_ADDRESS
+        ).build_transaction({
+            'chainId': 1088,
+            'gas': estimated_gas,
+            'gasPrice': gas_price,
+            'nonce': nonce
+        })
+    elif action == "repay":
+        tx = pool_contract.functions.repay(
+            token_address, amount, 2, WALLET_ADDRESS
+        ).build_transaction({
+            'chainId': 1088,
+            'gas': estimated_gas,
+            'gasPrice': gas_price,
+            'nonce': nonce
+        })
+    else:
+        raise ValueError("Invalid action. Please choose 'lend', 'borrow', or 'repay'.")
+
+    signed_tx = web3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+    print(f"{action.capitalize()} transaction sent: {tx_hash.hex()}")
+
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    print(f"{action.capitalize()} transaction confirmed: {receipt.status}")
+    return receipt, tx_hash.hex()
+
+
+#_____________________________________________________________________________________________________________________
+# AGENT DEFINITION
+#_____________________________________________________________________________________________________________________
+
+import os
+from telegram import Update
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    filters,
+    CallbackContext,
+)
+from alith import Agent
+
+
+
+
+def _execute_token_action(action: str, amount: int, token: str) -> str:
+    """Helper function to execute token actions (borrow/lend/repay)"""
+    if token not in TOKEN_ADDRESSES:
+        return "Invalid token. Please choose 'usdc', 'usdt', or 'dai'."
+
+    print(f"Approving {token.upper()} spend...")
+    approve_token_spend(token, amount)
+
+    print("Waiting for approval to be processed...")
+    time.sleep(5)
+
+    print(f"Performing {action} action with {amount} {token.upper()}...")
+    _, tx = perform_action(action, token, amount)
+
+    return (
+        "===== Transaction Summary =====\n"
+        f"Action: {action.capitalize()}\n"
+        f"Token: {token.upper()}\n"
+        f"Amount: {amount}\n"
+        "==============================\n"
+        f"{action.capitalize()} process completed!\n"
+        f"Transaction Receipt: https://andromeda-explorer.metis.io/tx/0x{tx}"
+    )
+
+def borrow(amount: int, token: str) -> str:
+    """borrow token"""
+    return _execute_token_action("borrow", amount, token)
+
+def lend(amount: int, token: str) -> str:
+    """lend token"""
+    return _execute_token_action("lend", amount, token)
+
+def repay(amount: int, token: str) -> str:
+    """repay token"""
+    return _execute_token_action("repay", amount, token)
+
+# Initialize Alith Agent
+agent = Agent(
+    name="Telegram Bot Agent",
+    # model="gpt-4",
+    model="deepseek-chat",  # or `deepseek-reasoner` for DeepSeek R1 Model
+    api_key=deepseek_api_key,  # Replace with your api key or read it from env.
+    base_url="api.deepseek.com",
+    preamble="""You are an advanced AI assistant that performs lending, borrowing and repaying operations on aave v3 Metis L2 chain""",
+    tools=[borrow, lend, repay],
+)
+
+# Initialize Telegram Bot
+#bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+
+app = Application.builder().token(bot_token).build()
+
+
+# Define message handler
+async def handle_message(update: Update, context: CallbackContext) -> None:
+    # Use the agent to generate a response
+    response = agent.prompt(update.message.text)
+    # Send the reply back to the Telegram chat
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+
+
+# Add handlers to the application
+app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+
+# Start the bot
+if __name__ == "__main__":
+    app.run_polling()
