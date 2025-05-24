@@ -1,8 +1,8 @@
 {
   "districts": [
       {
-      "districtId": 2951,
-      "buildingId": 342,
+      "districtId": 204,
+      "buildingId": 338,
       "buildingType": "NANO_FORGE",
       "researchType": "NANO_FORGE_SYNTHESIS",
       "tokens": {
@@ -16,18 +16,11 @@
           "receiver": "0x0000000000000000000000000000000000000000",
           "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
         }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    } ,
-    {
-      "districtId": 3025,
-      "buildingId": 341,
+     },
+
+{
+      "districtId": 204,
+      "buildingId": 339,
       "buildingType": "NANO_FORGE",
       "researchType": "NANO_FORGE_SYNTHESIS",
       "tokens": {
@@ -41,138 +34,6 @@
           "receiver": "0x0000000000000000000000000000000000000000",
           "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
         }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    } ,
-    {
-      "districtId": 60951,
-      "buildingId": 340,
-      "buildingType": "NANO_FORGE",
-      "researchType": "NANO_FORGE_SYNTHESIS",
-      "tokens": {
-        "C": {
-          "amount": 800000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
-        },
-        "Ti": {
-          "amount": 400000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
-        }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    } ,
-    {
-      "districtId": 14896,
-      "buildingId": 337,
-      "buildingType": "CRYSTAL_LAB",
-      "researchType": "CRYSTAL_LAB_SYNTHESIS",
-      "tokens": {
-        "Si": {
-          "amount": 500000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
-        },
-        "REE": {
-          "amount": 150000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
-        }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    } ,
-    {
-      "districtId": 14912,
-      "buildingId": 336,
-      "buildingType": "CRYSTAL_LAB",
-      "researchType": "CRYSTAL_LAB_SYNTHESIS",
-      "tokens": {
-        "Si": {
-          "amount": 500000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
-        },
-        "REE": {
-          "amount": 150000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
-        }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    } ,
-    {
-      "districtId": 14897,
-      "buildingId": 335,
-      "buildingType": "CRYSTAL_LAB",
-      "researchType": "CRYSTAL_LAB_SYNTHESIS",
-      "tokens": {
-        "Si": {
-          "amount": 500000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
-        },
-        "REE": {
-          "amount": 150000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
-        }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    } ,
-    {
-      "districtId": 14930,
-      "buildingId": 334,
-      "buildingType": "CRYSTAL_LAB",
-      "researchType": "CRYSTAL_LAB_SYNTHESIS",
-      "tokens": {
-        "Si": {
-          "amount": 500000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0x6989f166e49b378d38c4a5d2b00d76344dea8cec"
-        },
-        "REE": {
-          "amount": 150000,
-          "receiver": "0x0000000000000000000000000000000000000000",
-          "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
-        }
-      },
-      "internalTransfers": {
-        "POL": {
-          "amount": 0.01,
-          "sender": "0x0B00a466AD7e747D28F599c8ecd701EEC4C2E99f",
-          "receiver": "0x4e949E971ED54b0A131761Ae38eaD5C1C3e40dCF"
-        }
-      }
-    }
+     }
+
 ]}
