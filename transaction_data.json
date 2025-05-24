@@ -1,6 +1,6 @@
 {
   "districts": [
-      {
+    {
       "districtId": 204,
       "buildingId": 338,
       "buildingType": "NANO_FORGE",
@@ -16,9 +16,9 @@
           "receiver": "0x0000000000000000000000000000000000000000",
           "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
         }
-     },
-
-{
+      }
+    },
+    {
       "districtId": 204,
       "buildingId": 339,
       "buildingType": "NANO_FORGE",
@@ -34,6 +34,7 @@
           "receiver": "0x0000000000000000000000000000000000000000",
           "contract": "0xc316115d4ce93af8e081d8555820ff74efd5b5ae"
         }
-     }
-
-]}
+      }
+    }
+  ]
+}
