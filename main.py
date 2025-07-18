@@ -276,7 +276,7 @@ for district in data["districts"]:
 
     # Optional: Add a delay between transactions to avoid nonce issues
     if district_id != data["districts"][-1].get("districtId", "unknown"):
-        time.sleep(2)  # 2 second delay between transactions
+        time.sleep(60)  # 2 second delay between transactions
 
 # Final log statement depending on success or failures
 logging.info("\n--- SUMMARY ---")
